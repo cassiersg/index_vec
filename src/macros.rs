@@ -452,15 +452,39 @@ macro_rules! __define_index_type_inner {
                 self._raw
             }
 
+            /// Checks `v <= Self::MAX_INDEX` unless Self::CHECKS_MAX_INDEX is false.
+            #[inline]
+            $v const fn index_admissible(v: usize) -> bool {
+                !Self::CHECKS_MAX_INDEX || v <= Self::MAX_INDEX
+            }
             /// Asserts `v <= Self::MAX_INDEX` unless Self::CHECKS_MAX_INDEX is false.
             #[inline]
             $v fn check_index(v: usize) {
-                if Self::CHECKS_MAX_INDEX && (v > Self::MAX_INDEX) {
+                if !Self::index_admissible(v) {
                     $crate::__max_check_fail(v, Self::MAX_INDEX);
                 }
             }
 
             const _ENSURE_RAW_IS_UNSIGNED: [(); 0] = [(); <$raw>::min_value() as usize];
+
+            /// Checked arithmetic functions
+            #[inline(always)]
+            $v const fn checked_add(&self, rhs: Self) -> Option<Self> {
+                if let Some(res) = self._raw.checked_add(rhs._raw) {
+                    if Self::index_admissible(res as usize) {
+                        return Some(Self::from_raw_unchecked(res));
+                    }
+                }
+                None
+            }
+            #[inline(always)]
+            $v const fn checked_sub(&self, rhs: Self) -> Option<Self> {
+                if let Some(res) = self._raw.checked_sub(rhs._raw) {
+                    Some(Self::from_raw_unchecked(res))
+                } else {
+                    None
+                }
+            }
         }
 
         impl core::fmt::Debug for $type {
